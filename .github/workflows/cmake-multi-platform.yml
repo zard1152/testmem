@@ -93,10 +93,8 @@ jobs:
       
     - name: Upload ARM and Windows Artifacts
       if: matrix.os == 'ubuntu-latest' && (matrix.architecture == 'armv7' || matrix.architecture == 'arm64') || matrix.os == 'windows-latest'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: build-binaries
-        path: |
-          ${{ steps.strings.outputs.build-output-dir }}/myapp-armv7
-          ${{ steps.strings.outputs.build-output-dir }}/myapp-arm64
-          ${{ steps.strings.outputs.build-output-dir }}/myapp.exe
+        name: build-binaries-${{ matrix.os }}-${{ matrix.architecture }}  # Made artifact name unique
+        path: ${{ steps.strings.outputs.build-output-dir }}
+        if-no-files-found: warn  # Added error handling
