@@ -1,0 +1,102 @@
+name: CMake on multiple platforms with ARM and Windows
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        build_type: [Release]
+        architecture: [x64, armv7, arm64]  # Added ARMv7 and ARM64 architecture
+        c_compiler: [gcc, clang, cl]
+        include:
+          # Windows with MSVC compiler (default for Windows)
+          - os: windows-latest
+            architecture: x64
+            c_compiler: cl
+            cpp_compiler: cl
+          # Linux with GCC and ARM architectures
+          - os: ubuntu-latest
+            architecture: armv7
+            c_compiler: gcc
+            cpp_compiler: g++
+          - os: ubuntu-latest
+            architecture: arm64
+            c_compiler: gcc
+            cpp_compiler: g++
+          # Linux with Clang and ARM architectures
+          - os: ubuntu-latest
+            architecture: armv7
+            c_compiler: clang
+            cpp_compiler: clang++
+          - os: ubuntu-latest
+            architecture: arm64
+            c_compiler: clang
+            cpp_compiler: clang++
+        exclude:
+          - os: windows-latest
+            architecture: armv7
+          - os: windows-latest
+            architecture: arm64
+          - os: ubuntu-latest
+            c_compiler: cl
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set reusable strings
+      id: strings
+      shell: bash
+      run: |
+        echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+
+    - name: Configure CMake
+      run: |
+        # Setup cross-compilation for ARM architectures
+        if [ "${{ matrix.architecture }}" == "armv7" ]; then
+          cmake -B ${{ steps.strings.outputs.build-output-dir }} \
+          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
+          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/toolchain/armv7-toolchain.cmake \
+          -S ${{ github.workspace }}
+        elif [ "${{ matrix.architecture }}" == "arm64" ]; then
+          cmake -B ${{ steps.strings.outputs.build-output-dir }} \
+          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
+          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/toolchain/arm64-toolchain.cmake \
+          -S ${{ github.workspace }}
+        else
+          cmake -B ${{ steps.strings.outputs.build-output-dir }} \
+          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
+          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -S ${{ github.workspace }}
+        fi
+
+    - name: Build
+      run: |
+        cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} 
+
+    - name: Test
+      working-directory: ${{ steps.strings.outputs.build-output-dir }}
+      run: ctest --build-config ${{ matrix.build_type }}
+      
+    - name: Upload ARM and Windows Artifacts
+      if: matrix.os == 'ubuntu-latest' && (matrix.architecture == 'armv7' || matrix.architecture == 'arm64') || matrix.os == 'windows-latest'
+      uses: actions/upload-artifact@v2
+      with:
+        name: build-binaries
+        path: |
+          ${{ steps.strings.outputs.build-output-dir }}/myapp-armv7
+          ${{ steps.strings.outputs.build-output-dir }}/myapp-arm64
+          ${{ steps.strings.outputs.build-output-dir }}/myapp.exe
