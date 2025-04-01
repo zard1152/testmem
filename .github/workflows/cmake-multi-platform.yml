@@ -1,51 +1,57 @@
-name: CMake on multiple platforms
+name: Build Executable
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+on: [push, pull_request]
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
 
     strategy:
-      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        build_type: [Release]
-        include:
-          - os: windows-latest
-            c_compiler: cl
-            cpp_compiler: cl
-          - os: ubuntu-latest
-            c_compiler: gcc
-            cpp_compiler: g++
+        arch: [armv7, arm64, x64]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+      with:
+        platforms: all
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Cache Docker layers
+      uses: actions/cache@v2
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+
+    - name: Build and push
+      run: |
+        docker buildx build --platform linux/arm/v7,linux/arm64,linux/amd64 -t myimage:latest --push .
+        
+  build_windows:
+    runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v2
 
-    - name: Set reusable strings
-      id: strings
-      shell: bash
-      run: |
-        echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
+    - name: Install CMake
+      uses: lukka/get-cmake@v2
 
     - name: Configure CMake
-      run: |
-        cmake -B ${{ steps.strings.outputs.build-output-dir }} \
-        -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
-        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-        -S ${{ github.workspace }}
+      run: cmake -G "Visual Studio 16 2019" -A x64 .
 
     - name: Build
-      run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
-
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: testmem-${{ matrix.os }}
-        path: |
-          ${{ steps.strings.outputs.build-output-dir }}/**/testmem*
-        if-no-files-found: warn
+      run: cmake --build . --config Release
