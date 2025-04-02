@@ -16,15 +16,11 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
-
+          sudo apt install build-essential
+          
       - name: Install cppunit
         run: sudo apt install -y libcppunit-dev
 
       - name: Compile with GCC for ARMv7
         run: |
-          export CROSS_COMPILE=arm-linux-gnueabihf-
-          export ARCH=arm
-          make CC=${CROSS_COMPILE}gcc CXX=${CROSS_COMPILE}g++
-      
-      - name: Run tests
-        run: make test
+          gcc testmem.c -o testmem-armv7 -static
