@@ -23,4 +23,10 @@ jobs:
 
       - name: Compile with GCC for ARMv7
         run: |
-          gcc testmem.c -o testmem-armv7 -static
+          gcc testmem.c -o ./build/testmem-armv7 -static
+
+      - name: Upload compiled binary as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: testmem-armv7
+          path: ./build/testmem-armv7
