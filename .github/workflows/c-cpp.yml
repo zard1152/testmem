@@ -23,6 +23,7 @@ jobs:
 
       - name: Compile with GCC for ARMv7
         run: |
+          mkdir -p build
           gcc testmem.c -o ./build/testmem-armv7 -static
 
   
